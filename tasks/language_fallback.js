@@ -66,7 +66,7 @@ module.exports = function(grunt) {
     updatedFile += '/* jshint -W100 */\n';
 
     for (var locale in updatedLanguages) {
-      updatedFile += 'gettextCatalog.setStrings(' + JSON.stringify(updatedLanguages[locale]) + ');\n';
+      updatedFile += 'gettextCatalog.setStrings(' + '\'' + locale +'\',' + JSON.stringify(updatedLanguages[locale]) + ');\n';
     }
 
     updatedFile += '/* jshint +W100 */\n';
