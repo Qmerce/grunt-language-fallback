@@ -2,22 +2,22 @@
   "name": "grunt-language-fallback",
   "description": "Fallback to english (or any choosen language) the translations that don't have values",
   "version": "0.1.0",
-  "homepage": "https://github.com/johnbenz13/grunt-language-fallback",
+  "homepage": "https://github.com/Qmerce/grunt-language-fallback",
   "author": {
     "name": "Jonathan Bensaid",
     "email": "john@bensaidj.com"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/johnbenz13/grunt-language-fallback.git"
+    "url": "git@github.com:Qmerce/grunt-language-fallback.git"
   },
   "bugs": {
-    "url": "https://github.com/johnbenz13/grunt-language-fallback/issues"
+    "url": "https://github.com/Qmerce/grunt-language-fallback/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/johnbenz13/grunt-language-fallback/blob/master/LICENSE-MIT"
+      "url": "https://github.com/Qmerce/grunt-language-fallback/blob/master/LICENSE-MIT"
     }
   ],
   "engines": {
