@@ -32,18 +32,10 @@ module.exports = function(grunt) {
     language_fallback: {
       default_options: {
         options: {
+          language: 'en'
         },
         files: {
-          'tmp/default_options': ['test/fixtures/testing', 'test/fixtures/123']
-        }
-      },
-      custom_options: {
-        options: {
-          separator: ': ',
-          punctuation: ' !!!'
-        },
-        files: {
-          'tmp/custom_options': ['test/fixtures/testing', 'test/fixtures/123']
+          'tmp/testing.js': ['test/fixtures/testing.js']
         }
       }
     },
