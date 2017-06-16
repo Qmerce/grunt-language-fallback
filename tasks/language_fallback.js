@@ -2,121 +2,107 @@
  * grunt-language-fallback
  * https://github.com/johnbenz13/grunt-language-fallback
  *
- * Copyright (c) 2015 Jonathan Bensaid
+ * Copyright (c) 2015 Ben Bakhar
  * Licensed under the MIT license.
  */
 
 'use strict';
 
-module.exports = function(grunt) {
+const fs = require('fs');
+const path = require('path');
 
-  /**
-   * Parse the language file and extract the translations as an object
-   * @param source
-   * @returns {{}}
-   */
-  function getLanguageObject(source) {
-    var languages = {},
-      regex = /gettextCatalog.setStrings\((.*)\)\;/g,
-      match = regex.exec(source),
-      language;
+module.exports = function (grunt) {
 
+  const readDir = (srcDir) => {
+    return new Promise((resolve, reject) => {
+      fs.readdir(srcDir, (err, res) => {
 
-    while (match != null) {
-      language = match[1].split(/,(.+)?/);
-      languages[language[0].slice(1, - 1)] = JSON.parse(language[1]);
-
-      match = regex.exec(source);
-    }
-
-    return languages;
-  }
-
-  /**
-   * Loop over the baseLanguage and update the other language with it when a string is missing
-   * @param languages
-   * @param baseLanguageKey
-   * @returns {{}}
-   */
-  function updateLanguages(languages, baseLanguageKey) {
-    var baseLanguage = languages[baseLanguageKey],
-      updatedLanguages = {};
-
-    for (var locale in languages) {
-      if (locale === baseLanguageKey) {
-        updatedLanguages[baseLanguageKey] = baseLanguage;
-      } else {
-        updatedLanguages[locale] = {};
-        for (var key in baseLanguage) {
-          //console.log('working on the key', key);
-          if (languages[locale][key]) {
-            updatedLanguages[locale][key] = languages[locale][key];
-          } else {
-            updatedLanguages[locale][key] = baseLanguage[key];
-          }
+        if (err) {
+          return reject(err);
         }
-      }
-    }
-
-    return updatedLanguages;
-  }
-
-  function getUpdatedFile(updatedLanguages) {
-    var updatedFile = 'angular.module(\'gettext\').run([\'gettextCatalog\', function (gettextCatalog) {\n';
-    updatedFile += '/* jshint -W100 */\n';
-
-    for (var locale in updatedLanguages) {
-      updatedFile += 'gettextCatalog.setStrings(' + '\'' + locale +'\',' + JSON.stringify(updatedLanguages[locale]) + ');\n';
-    }
-
-    updatedFile += '/* jshint +W100 */\n';
-    updatedFile += '}]);\n';
-
-    return updatedFile;
-  }
-
-  // Please see the Grunt documentation for more information regarding task
-  // creation: http://gruntjs.com/creating-tasks
-
-  grunt.registerMultiTask('language_fallback', 'Fallback to english (or any choosen language) the translations that don\'t have values', function() {
-    // Merge task-specific and/or target-specific options with these defaults.
-    var options = this.options({
-      punctuation: '.',
-      separator: ', ',
-      language: 'en'
+        resolve(res)
+      });
     });
+  };
 
-    // Iterate over all specified file groups.
-    this.files.forEach(function(f) {
-      // Concat specified files.
-      var src = f.src.filter(function(filepath) {
-        // Warn on and remove invalid source files (if nonull was set).
-        if (!grunt.file.exists(filepath)) {
-          grunt.log.warn('Source file "' + filepath + '" not found.');
-          return false;
-        } else {
-          return true;
+  const readFile = (srcDir, p) => {
+    console.log(srcDir, p, path.resolve(`${srcDir}/${p}`))
+    return new Promise((resolve, reject) => {
+      fs.readFile(path.resolve(`${srcDir}/${p}`), 'utf8', (err, res) => {
+
+        if (err) {
+          return reject(err);
         }
-      }).map(function(filepath) {
-        // Read file source.
-        return grunt.file.read(filepath);
-      }).join(grunt.util.normalizelf(options.separator));
-
-      // Handle options.
-      src += options.punctuation;
-
-      var languages = getLanguageObject(src);
-
-      var updatedLanguages = updateLanguages(languages, options.language);
-      var updatedFile = getUpdatedFile(updatedLanguages);
-
-
-      // Write the destination file.
-      grunt.file.write(f.dest, updatedFile);
-
-      // Print a success message.
-      grunt.log.writeln('File "' + f.dest + '" created.');
+        resolve({path: p, data: JSON.parse(res)})
+      });
     });
+  };
+
+  const readFiles = (srcDir) => {
+    return (paths) => {
+      return Promise.all(paths.map(p => readFile(srcDir, p)))
+    }
+  };
+
+  const filterFiles = (files) => {
+    return files.filter(f => /.json$/.test(f));
+  };
+
+  const writeFiles = (destDir) => {
+    return (files) => {
+      return Promise.all(files.map(f => {
+        return new Promise((resolve, reject) => {
+          fs.writeFile(path.resolve(`${destDir}/${f.path}`), JSON.stringify(f.data), 'utf8', (err, res) => {
+            if (err) {
+              return reject(err);
+            }
+            return resolve(res)
+          })
+        })
+      }))
+    }
+  };
+
+  const extendFilesWithFallback = (fallbackLang) => {
+    return (files) => {
+      return files.map((f, i) => {
+
+        // copy object
+        let extended = JSON.parse(JSON.stringify(fallbackLang));
+
+        Object.assign(extended.en, f.data[Object.keys(f.data)[0]]);
+        f.data[Object.keys(f.data)[0]] = extended.en;
+
+        return f;
+      });
+    }
+  };
+
+  grunt.registerMultiTask('language_fallback', 'Extend translations with fallback language', function () {
+
+    // set task as async
+    var done = this.async();
+    var srcDir = path.resolve(this.data.src);
+    var destDir = path.resolve(this.data.dest);
+    var fallbackLang = require(`${path.resolve(srcDir, this.data.language)}.json`);
+
+    const onSuccess = () => {
+      grunt.log.writeln('languages updated');
+      done();
+    };
+
+    const onError = (err) => {
+      grunt.log.error(err);
+      done(false);
+    };
+
+    readDir(srcDir)
+      .then(filterFiles)
+      .then(readFiles(srcDir))
+      .then(extendFilesWithFallback(fallbackLang))
+      .then(writeFiles(destDir))
+      .then(onSuccess)
+      .catch(onError);
   });
 
 };
